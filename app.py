@@ -25,6 +25,7 @@ class StockReturns:
 	def plot(self, start=None, end=None):
 		chart = st.empty()
 		df = self.history(start, end)
+
 		start, end = st.slider('', value=[start, end], format="YY.MM.DD")
 		df = df.query("index >= @start and index <= @end")
 		daily_returns = df.asfreq('B', method='bfill')['Close'].pct_change()
@@ -44,7 +45,17 @@ if __name__ == '__main__':
 
 	st.sidebar.title('Stock Returns')
 	symbols = st.sidebar.text_input('Tickers', 'QQQ ARKK')
-	start = st.sidebar.date_input('Start Date', datetime(datetime.today().year, 1, 2))
+	
+	period = st.sidebar.selectbox('Select period', ['YTD', '3 Months', '6 Months', '1 Year', '2 Years', '3 Years'])
+	if period == 'YTD':
+		start = datetime(datetime.today().year, 1, 2).date()
+	elif 'Month' in period:
+		start = datetime.today() - relativedelta(months=int(period.split(' ')[0]))
+	elif 'Year' in period:
+		start = datetime.today() - relativedelta(years=int(period.split(' ')[0]))
+
+	start = st.sidebar.date_input('Start Date', start)
 	end = st.sidebar.date_input('End Date', datetime.today())
+
 	app = StockReturns(symbols)
 	app.plot(start, end)
