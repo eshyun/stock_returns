@@ -10,8 +10,20 @@ import streamlit as st
 
 class StockReturns:
 	def __init__(self, symbols):
-		self.symbols = symbols
+		self.raw_symbols = symbols
 		self.tickers = yf.Tickers(symbols)
+		self.symbols = self.tickers.symbols
+		if len(self.tickers.symbols) < 2:
+			self.tickers = yf.Ticker(symbols)
+		else:
+			# yfinance does not handle . in symbol properly (for example, 005930.KS)
+			has_dot = False
+			for symbol in self.tickers.symbols:
+				if '.' in symbol:
+					has_dot = True
+					break
+			if has_dot:
+				self.tickers = [yf.Ticker(s) for s in self.tickers.symbols]
 
 	@st.cache()
 	def history(self, start=None, end=None):
@@ -19,7 +31,22 @@ class StockReturns:
 			start = datetime(datetime.today().year, 1, 2)
 		if end is None:
 			end = datetime.today()
-		df = self.tickers.history(start=start, end=end)
+
+		if isinstance(self.tickers, list):
+			data = [t.history(start=start, end=end) for t in self.tickers]
+			return self._merge(self.symbols, data)
+		else:
+			df = self.tickers.history(start=start, end=end)
+		return df
+
+	def _merge(self, symbols, data):
+		for i, symbol in enumerate(symbols):
+			data[i]['Company'] = symbol
+
+		df = pd.concat(data, axis=0)
+		df.index.name = 'Date'
+		df = df.reset_index()
+		df = df.set_index(['Date', 'Company']).stack().unstack([2,1])
 		return df
 
 	def plot(self, start=None, end=None):
